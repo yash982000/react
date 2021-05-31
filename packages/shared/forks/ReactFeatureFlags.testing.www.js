@@ -19,7 +19,6 @@ export const enableProfilerTimer = false;
 export const enableProfilerCommitHooks = false;
 export const enableProfilerNestedUpdatePhase = false;
 export const enableProfilerNestedUpdateScheduledHook = false;
-export const enableSchedulerTracing = false;
 export const enableUpdaterTracking = false;
 export const enableSuspenseServerRenderer = true;
 export const enableSelectiveHydration = true;
@@ -60,6 +59,7 @@ export const enableRecursiveCommitTraversal = false;
 export const disableSchedulerTimeoutInWorkLoop = false;
 export const enableLazyContextPropagation = false;
 export const enableSyncDefaultUpdates = true;
+export const allowConcurrentByDefault = true;
 
 // Flow magic to verify the exports of this file match the original version.
 // eslint-disable-next-line no-unused-vars

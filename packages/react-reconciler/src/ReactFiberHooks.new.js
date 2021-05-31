@@ -480,7 +480,13 @@ export function renderWithHooks<Props, SecondArg>(
     if (
       current !== null &&
       (current.flags & StaticMaskEffect) !==
-        (workInProgress.flags & StaticMaskEffect)
+        (workInProgress.flags & StaticMaskEffect) &&
+      // Disable this warning in legacy mode, because legacy Suspense is weird
+      // and creates false positives. To make this work in legacy mode, we'd
+      // need to mark fibers that commit in an incomplete state, somehow. For
+      // now I'll disable the warning that most of the bugs that would trigger
+      // it are either exclusive to concurrent mode or exist in both.
+      (current.mode & ConcurrentMode) !== NoMode
     ) {
       console.error(
         'Internal React error: Expected static flag was missing. Please ' +
@@ -1723,27 +1729,27 @@ function startTransition(setPending, callback) {
   }
 }
 
-function mountTransition(): [(() => void) => void, boolean] {
+function mountTransition(): [boolean, (() => void) => void] {
   const [isPending, setPending] = mountState(false);
   // The `start` method never changes.
   const start = startTransition.bind(null, setPending);
   const hook = mountWorkInProgressHook();
   hook.memoizedState = start;
-  return [start, isPending];
+  return [isPending, start];
 }
 
-function updateTransition(): [(() => void) => void, boolean] {
+function updateTransition(): [boolean, (() => void) => void] {
   const [isPending] = updateState(false);
   const hook = updateWorkInProgressHook();
   const start = hook.memoizedState;
-  return [start, isPending];
+  return [isPending, start];
 }
 
-function rerenderTransition(): [(() => void) => void, boolean] {
+function rerenderTransition(): [boolean, (() => void) => void] {
   const [isPending] = rerenderState(false);
   const hook = updateWorkInProgressHook();
   const start = hook.memoizedState;
-  return [start, isPending];
+  return [isPending, start];
 }
 
 let isUpdatingOpaqueValueInRenderPhase = false;
@@ -2283,7 +2289,7 @@ if (__DEV__) {
       mountHookTypesDev();
       return mountDeferredValue(value);
     },
-    useTransition(): [(() => void) => void, boolean] {
+    useTransition(): [boolean, (() => void) => void] {
       currentHookNameInDev = 'useTransition';
       mountHookTypesDev();
       return mountTransition();
@@ -2407,7 +2413,7 @@ if (__DEV__) {
       updateHookTypesDev();
       return mountDeferredValue(value);
     },
-    useTransition(): [(() => void) => void, boolean] {
+    useTransition(): [boolean, (() => void) => void] {
       currentHookNameInDev = 'useTransition';
       updateHookTypesDev();
       return mountTransition();
@@ -2531,7 +2537,7 @@ if (__DEV__) {
       updateHookTypesDev();
       return updateDeferredValue(value);
     },
-    useTransition(): [(() => void) => void, boolean] {
+    useTransition(): [boolean, (() => void) => void] {
       currentHookNameInDev = 'useTransition';
       updateHookTypesDev();
       return updateTransition();
@@ -2656,7 +2662,7 @@ if (__DEV__) {
       updateHookTypesDev();
       return rerenderDeferredValue(value);
     },
-    useTransition(): [(() => void) => void, boolean] {
+    useTransition(): [boolean, (() => void) => void] {
       currentHookNameInDev = 'useTransition';
       updateHookTypesDev();
       return rerenderTransition();
@@ -2792,7 +2798,7 @@ if (__DEV__) {
       mountHookTypesDev();
       return mountDeferredValue(value);
     },
-    useTransition(): [(() => void) => void, boolean] {
+    useTransition(): [boolean, (() => void) => void] {
       currentHookNameInDev = 'useTransition';
       warnInvalidHookAccess();
       mountHookTypesDev();
@@ -2931,7 +2937,7 @@ if (__DEV__) {
       updateHookTypesDev();
       return updateDeferredValue(value);
     },
-    useTransition(): [(() => void) => void, boolean] {
+    useTransition(): [boolean, (() => void) => void] {
       currentHookNameInDev = 'useTransition';
       warnInvalidHookAccess();
       updateHookTypesDev();
@@ -3071,7 +3077,7 @@ if (__DEV__) {
       updateHookTypesDev();
       return rerenderDeferredValue(value);
     },
-    useTransition(): [(() => void) => void, boolean] {
+    useTransition(): [boolean, (() => void) => void] {
       currentHookNameInDev = 'useTransition';
       warnInvalidHookAccess();
       updateHookTypesDev();

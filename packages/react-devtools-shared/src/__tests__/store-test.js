@@ -60,6 +60,45 @@ describe('Store', () => {
     expect(store).toMatchSnapshot('2: add host nodes');
   });
 
+  // This test is not the same cause as what's reported on GitHub,
+  // but the resulting behavior (owner mounting after descendant) is the same.
+  // Thec ase below is admittedly contrived and relies on side effects.
+  // I'mnot yet sure of how to reduce the GitHub reported production case to a test though.
+  // See https://github.com/facebook/react/issues/21445
+  it('should handle when a component mounts before its owner', () => {
+    const promise = new Promise(resolve => {});
+
+    let Dynamic = null;
+    const Owner = () => {
+      Dynamic = <Child />;
+      throw promise;
+    };
+    const Parent = () => {
+      return Dynamic;
+    };
+    const Child = () => null;
+
+    const container = document.createElement('div');
+
+    act(() =>
+      ReactDOM.render(
+        <>
+          <React.Suspense fallback="Loading...">
+            <Owner />
+          </React.Suspense>
+          <Parent />
+        </>,
+        container,
+      ),
+    );
+    expect(store).toMatchInlineSnapshot(`
+      [root]
+          <Suspense>
+        ▾ <Parent>
+            <Child>
+    `);
+  });
+
   describe('collapseNodesByDefault:false', () => {
     beforeEach(() => {
       store.collapseNodesByDefault = false;
@@ -356,18 +395,18 @@ describe('Store', () => {
       };
       const Wrapper = ({shouldSuspense}) => (
         <React.Fragment>
-          <React.unstable_SuspenseList revealOrder="forwards" tail="collapsed">
+          <React.SuspenseList revealOrder="forwards" tail="collapsed">
             <Component key="A" />
             <React.Suspense fallback={<Loading />}>
               {shouldSuspense ? <SuspendingComponent /> : <Component key="B" />}
             </React.Suspense>
             <Component key="C" />
-          </React.unstable_SuspenseList>
+          </React.SuspenseList>
         </React.Fragment>
       );
 
       const container = document.createElement('div');
-      const root = ReactDOM.unstable_createRoot(container);
+      const root = ReactDOM.createRoot(container);
       act(() => {
         root.render(<Wrapper shouldSuspense={true} />);
       });
@@ -879,6 +918,17 @@ describe('Store', () => {
       FakeHigherOrderComponent,
     );
 
+    const MemoizedFakeHigherOrderComponentWithDisplayNameOverride = React.memo(
+      FakeHigherOrderComponent,
+    );
+    MemoizedFakeHigherOrderComponentWithDisplayNameOverride.displayName =
+      'memoRefOverride';
+    const ForwardRefFakeHigherOrderComponentWithDisplayNameOverride = React.forwardRef(
+      FakeHigherOrderComponent,
+    );
+    ForwardRefFakeHigherOrderComponentWithDisplayNameOverride.displayName =
+      'forwardRefOverride';
+
     const App = () => (
       <React.Fragment>
         <MyComponent />
@@ -891,6 +941,8 @@ describe('Store', () => {
         <MemoizedFakeHigherOrderComponent />
         <ForwardRefFakeHigherOrderComponent />
         <React.unstable_Cache />
+        <MemoizedFakeHigherOrderComponentWithDisplayNameOverride />
+        <ForwardRefFakeHigherOrderComponentWithDisplayNameOverride />
       </React.Fragment>
     );
 
@@ -904,7 +956,24 @@ describe('Store', () => {
     // Render again after it resolves
     act(() => ReactDOM.render(<App />, container));
 
-    expect(store).toMatchSnapshot();
+    expect(store).toMatchInlineSnapshot(`
+      [root]
+        ▾ <App>
+            <MyComponent>
+            <MyComponent> [ForwardRef]
+          ▾ <Anonymous> [ForwardRef]
+              <MyComponent2>
+            <Custom> [ForwardRef]
+            <MyComponent4> [Memo]
+          ▾ <MyComponent> [Memo]
+              <MyComponent> [ForwardRef]
+            <Baz> [withFoo][withBar]
+            <Baz> [Memo][withFoo][withBar]
+            <Baz> [ForwardRef][withFoo][withBar]
+            <Cache>
+            <memoRefOverride> [Memo]
+            <forwardRefOverride> [ForwardRef]
+    `);
   });
 
   describe('Lazy', () => {
@@ -954,7 +1023,7 @@ describe('Store', () => {
 
     it('should support Lazy components in (createRoot)', async () => {
       const container = document.createElement('div');
-      const root = ReactDOM.unstable_createRoot(container);
+      const root = ReactDOM.createRoot(container);
 
       // Render once to start fetching the lazy component
       act(() => root.render(<App renderChildren={true} />));
@@ -990,7 +1059,7 @@ describe('Store', () => {
 
     it('should support Lazy components that are unmounted before they finish loading in (createRoot)', async () => {
       const container = document.createElement('div');
-      const root = ReactDOM.unstable_createRoot(container);
+      const root = ReactDOM.createRoot(container);
 
       // Render once to start fetching the lazy component
       act(() => root.render(<App renderChildren={true} />));

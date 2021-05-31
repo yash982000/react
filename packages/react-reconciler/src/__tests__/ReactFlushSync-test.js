@@ -14,7 +14,7 @@ describe('ReactFlushSync', () => {
     Scheduler = require('scheduler');
     useState = React.useState;
     useEffect = React.useEffect;
-    startTransition = React.unstable_startTransition;
+    startTransition = React.startTransition;
   });
 
   function Text({text}) {
@@ -22,7 +22,6 @@ describe('ReactFlushSync', () => {
     return text;
   }
 
-  // @gate experimental || !enableSyncDefaultUpdates
   test('changes priority of updates in useEffect', async () => {
     function App() {
       const [syncState, setSyncState] = useState(0);
@@ -39,7 +38,7 @@ describe('ReactFlushSync', () => {
     const root = ReactNoop.createRoot();
     await ReactNoop.act(async () => {
       if (gate(flags => flags.enableSyncDefaultUpdates)) {
-        React.unstable_startTransition(() => {
+        React.startTransition(() => {
           root.render(<App />);
         });
       } else {
@@ -51,11 +50,7 @@ describe('ReactFlushSync', () => {
       // The passive effect will schedule a sync update and a normal update.
       // They should commit in two separate batches. First the sync one.
       expect(() => {
-        if (gate(flags => flags.enableSyncDefaultUpdates)) {
-          expect(Scheduler).toFlushUntilNextPaint(['1, 0', '1, 1']);
-        } else {
-          expect(Scheduler).toFlushUntilNextPaint(['1, 0']);
-        }
+        expect(Scheduler).toFlushUntilNextPaint(['1, 0']);
       }).toErrorDev('flushSync was called from inside a lifecycle method');
 
       // The remaining update is not sync
@@ -63,17 +58,11 @@ describe('ReactFlushSync', () => {
       expect(Scheduler).toHaveYielded([]);
 
       // Now flush it.
-      if (gate(flags => flags.enableSyncDefaultUpdates)) {
-        // With sync default updates, passive effects are synchronously flushed.
-        expect(Scheduler).toHaveYielded([]);
-      } else {
-        expect(Scheduler).toFlushUntilNextPaint(['1, 1']);
-      }
+      expect(Scheduler).toFlushUntilNextPaint(['1, 1']);
     });
     expect(root).toMatchRenderedOutput('1, 1');
   });
 
-  // @gate experimental
   test('nested with startTransition', async () => {
     let setSyncState;
     let setState;

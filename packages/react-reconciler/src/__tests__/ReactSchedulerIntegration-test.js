@@ -28,7 +28,7 @@ describe('ReactSchedulerIntegration', () => {
     NormalPriority = Scheduler.unstable_NormalPriority;
     IdlePriority = Scheduler.unstable_IdlePriority;
     runWithPriority = Scheduler.unstable_runWithPriority;
-    startTransition = React.unstable_startTransition;
+    startTransition = React.startTransition;
   });
 
   // Note: This is based on a similar component we use in www. We can delete
@@ -88,7 +88,6 @@ describe('ReactSchedulerIntegration', () => {
     ]);
   });
 
-  // @gate experimental || !enableSyncDefaultUpdates
   it('requests a paint after committing', () => {
     const scheduleCallback = Scheduler.unstable_scheduleCallback;
 
@@ -102,7 +101,7 @@ describe('ReactSchedulerIntegration', () => {
 
     // Schedule a React render. React will request a paint after committing it.
     if (gate(flags => flags.enableSyncDefaultUpdates)) {
-      React.unstable_startTransition(() => {
+      React.startTransition(() => {
         root.render('Update');
       });
     } else {
@@ -188,7 +187,7 @@ describe(
       jest.resetModules();
 
       jest.mock('scheduler', () => {
-        const actual = require.requireActual('scheduler/unstable_mock');
+        const actual = jest.requireActual('scheduler/unstable_mock');
         return {
           ...actual,
           unstable_shouldYield() {
@@ -203,12 +202,12 @@ describe(
       React = require('react');
       ReactNoop = require('react-noop-renderer');
       Scheduler = require('scheduler');
-      startTransition = React.unstable_startTransition;
+      startTransition = React.startTransition;
     });
 
     afterEach(() => {
       jest.mock('scheduler', () =>
-        require.requireActual('scheduler/unstable_mock'),
+        jest.requireActual('scheduler/unstable_mock'),
       );
     });
 
@@ -252,7 +251,6 @@ describe(
       });
     });
 
-    // @gate experimental
     it('mock Scheduler module to check if `shouldYield` is called', async () => {
       // This test reproduces a bug where React's Scheduler task timed out but
       // the `shouldYield` method returned true. Usually we try not to mock
@@ -300,10 +298,9 @@ describe(
           ReactNoop.render(<App />);
         });
 
-        ReactNoop.flushSync();
-
         // Because the render expired, React should finish the tree without
         // consulting `shouldYield` again
+        Scheduler.unstable_flushNumberOfYields(1);
         expect(Scheduler).toHaveYielded(['B', 'C']);
       });
     });

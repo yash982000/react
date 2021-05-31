@@ -16,6 +16,7 @@ let React;
 let ReactDOM;
 let ReactDOMFizzServer;
 let Suspense;
+let SuspenseList;
 let PropTypes;
 let textCache;
 let document;
@@ -37,6 +38,7 @@ describe('ReactDOMFizzServer', () => {
     }
     Stream = require('stream');
     Suspense = React.Suspense;
+    SuspenseList = React.SuspenseList;
     PropTypes = require('prop-types');
 
     textCache = new Map();
@@ -115,10 +117,6 @@ describe('ReactDOMFizzServer', () => {
               attributes[i].value.includes(':')
             ) {
               // We assume this is a React added ID that's a non-visual implementation detail.
-              continue;
-            }
-            if (attributes[i].name === 'data-reactroot') {
-              // We ignore React injected attributes.
               continue;
             }
             props[attributes[i].name] = attributes[i].value;
@@ -212,6 +210,230 @@ describe('ReactDOMFizzServer', () => {
   }
 
   // @gate experimental
+  it('should asynchronously load a lazy component', async () => {
+    let resolveA;
+    const LazyA = React.lazy(() => {
+      return new Promise(r => {
+        resolveA = r;
+      });
+    });
+
+    let resolveB;
+    const LazyB = React.lazy(() => {
+      return new Promise(r => {
+        resolveB = r;
+      });
+    });
+
+    function TextWithPunctuation({text, punctuation}) {
+      return <Text text={text + punctuation} />;
+    }
+    // This tests that default props of the inner element is resolved.
+    TextWithPunctuation.defaultProps = {
+      punctuation: '!',
+    };
+
+    await act(async () => {
+      const {startWriting} = ReactDOMFizzServer.pipeToNodeWritable(
+        <div>
+          <div>
+            <Suspense fallback={<Text text="Loading..." />}>
+              <LazyA text="Hello" />
+            </Suspense>
+          </div>
+          <div>
+            <Suspense fallback={<Text text="Loading..." />}>
+              <LazyB text="world" />
+            </Suspense>
+          </div>
+        </div>,
+        writable,
+      );
+      startWriting();
+    });
+    expect(getVisibleChildren(container)).toEqual(
+      <div>
+        <div>Loading...</div>
+        <div>Loading...</div>
+      </div>,
+    );
+    await act(async () => {
+      resolveA({default: Text});
+    });
+    expect(getVisibleChildren(container)).toEqual(
+      <div>
+        <div>Hello</div>
+        <div>Loading...</div>
+      </div>,
+    );
+    await act(async () => {
+      resolveB({default: TextWithPunctuation});
+    });
+    expect(getVisibleChildren(container)).toEqual(
+      <div>
+        <div>Hello</div>
+        <div>world!</div>
+      </div>,
+    );
+  });
+
+  // @gate experimental
+  it('should client render a boundary if a lazy component rejects', async () => {
+    let rejectComponent;
+    const LazyComponent = React.lazy(() => {
+      return new Promise((resolve, reject) => {
+        rejectComponent = reject;
+      });
+    });
+
+    const loggedErrors = [];
+
+    function App({isClient}) {
+      return (
+        <div>
+          <Suspense fallback={<Text text="Loading..." />}>
+            {isClient ? <Text text="Hello" /> : <LazyComponent text="Hello" />}
+          </Suspense>
+        </div>
+      );
+    }
+
+    await act(async () => {
+      const {startWriting} = ReactDOMFizzServer.pipeToNodeWritable(
+        <App isClient={false} />,
+        writable,
+        {
+          onError(x) {
+            loggedErrors.push(x);
+          },
+        },
+      );
+      startWriting();
+    });
+    expect(loggedErrors).toEqual([]);
+
+    // Attempt to hydrate the content.
+    const root = ReactDOM.createRoot(container, {hydrate: true});
+    root.render(<App isClient={true} />);
+    Scheduler.unstable_flushAll();
+
+    // We're still loading because we're waiting for the server to stream more content.
+    expect(getVisibleChildren(container)).toEqual(<div>Loading...</div>);
+
+    expect(loggedErrors).toEqual([]);
+
+    const theError = new Error('Test');
+    await act(async () => {
+      rejectComponent(theError);
+    });
+
+    expect(loggedErrors).toEqual([theError]);
+
+    // We haven't ran the client hydration yet.
+    expect(getVisibleChildren(container)).toEqual(<div>Loading...</div>);
+
+    // Now we can client render it instead.
+    Scheduler.unstable_flushAll();
+
+    // The client rendered HTML is now in place.
+    expect(getVisibleChildren(container)).toEqual(<div>Hello</div>);
+
+    expect(loggedErrors).toEqual([theError]);
+  });
+
+  // @gate experimental
+  it('should asynchronously load a lazy element', async () => {
+    let resolveElement;
+    const lazyElement = React.lazy(() => {
+      return new Promise(r => {
+        resolveElement = r;
+      });
+    });
+
+    await act(async () => {
+      const {startWriting} = ReactDOMFizzServer.pipeToNodeWritable(
+        <div>
+          <Suspense fallback={<Text text="Loading..." />}>
+            {lazyElement}
+          </Suspense>
+        </div>,
+        writable,
+      );
+      startWriting();
+    });
+    expect(getVisibleChildren(container)).toEqual(<div>Loading...</div>);
+    await act(async () => {
+      resolveElement({default: <Text text="Hello" />});
+    });
+    expect(getVisibleChildren(container)).toEqual(<div>Hello</div>);
+  });
+
+  // @gate experimental
+  it('should client render a boundary if a lazy element rejects', async () => {
+    let rejectElement;
+    const element = <Text text="Hello" />;
+    const lazyElement = React.lazy(() => {
+      return new Promise((resolve, reject) => {
+        rejectElement = reject;
+      });
+    });
+
+    const loggedErrors = [];
+
+    function App({isClient}) {
+      return (
+        <div>
+          <Suspense fallback={<Text text="Loading..." />}>
+            {isClient ? element : lazyElement}
+          </Suspense>
+        </div>
+      );
+    }
+
+    await act(async () => {
+      const {startWriting} = ReactDOMFizzServer.pipeToNodeWritable(
+        <App isClient={false} />,
+        writable,
+        {
+          onError(x) {
+            loggedErrors.push(x);
+          },
+        },
+      );
+      startWriting();
+    });
+    expect(loggedErrors).toEqual([]);
+
+    // Attempt to hydrate the content.
+    const root = ReactDOM.createRoot(container, {hydrate: true});
+    root.render(<App isClient={true} />);
+    Scheduler.unstable_flushAll();
+
+    // We're still loading because we're waiting for the server to stream more content.
+    expect(getVisibleChildren(container)).toEqual(<div>Loading...</div>);
+
+    expect(loggedErrors).toEqual([]);
+
+    const theError = new Error('Test');
+    await act(async () => {
+      rejectElement(theError);
+    });
+
+    expect(loggedErrors).toEqual([theError]);
+
+    // We haven't ran the client hydration yet.
+    expect(getVisibleChildren(container)).toEqual(<div>Loading...</div>);
+
+    // Now we can client render it instead.
+    Scheduler.unstable_flushAll();
+
+    // The client rendered HTML is now in place.
+    expect(getVisibleChildren(container)).toEqual(<div>Hello</div>);
+
+    expect(loggedErrors).toEqual([theError]);
+  });
+
+  // @gate experimental
   it('should asynchronously load the suspense boundary', async () => {
     await act(async () => {
       const {startWriting} = ReactDOMFizzServer.pipeToNodeWritable(
@@ -256,9 +478,10 @@ describe('ReactDOMFizzServer', () => {
     });
 
     // We're still showing a fallback.
+    expect(getVisibleChildren(container)).toEqual(<div>Loading...</div>);
 
     // Attempt to hydrate the content.
-    const root = ReactDOM.unstable_createRoot(container, {hydrate: true});
+    const root = ReactDOM.createRoot(container, {hydrate: true});
     root.render(<App />);
     Scheduler.unstable_flushAll();
 
@@ -288,6 +511,176 @@ describe('ReactDOMFizzServer', () => {
   });
 
   // @gate experimental
+  it('handles an error on the client if the server ends up erroring', async () => {
+    const ref = React.createRef();
+
+    class ErrorBoundary extends React.Component {
+      state = {error: null};
+      static getDerivedStateFromError(error) {
+        return {error};
+      }
+      render() {
+        if (this.state.error) {
+          return <b ref={ref}>{this.state.error.message}</b>;
+        }
+        return this.props.children;
+      }
+    }
+
+    function App() {
+      return (
+        <ErrorBoundary>
+          <div>
+            <Suspense fallback="Loading...">
+              <span ref={ref}>
+                <AsyncText text="This Errors" />
+              </span>
+            </Suspense>
+          </div>
+        </ErrorBoundary>
+      );
+    }
+
+    const loggedErrors = [];
+
+    // We originally suspend the boundary and start streaming the loading state.
+    await act(async () => {
+      const {startWriting} = ReactDOMFizzServer.pipeToNodeWritable(
+        <App />,
+        writable,
+        {
+          onError(x) {
+            loggedErrors.push(x);
+          },
+        },
+      );
+      startWriting();
+    });
+
+    // We're still showing a fallback.
+    expect(getVisibleChildren(container)).toEqual(<div>Loading...</div>);
+
+    expect(loggedErrors).toEqual([]);
+
+    // Attempt to hydrate the content.
+    const root = ReactDOM.createRoot(container, {hydrate: true});
+    root.render(<App />);
+    Scheduler.unstable_flushAll();
+
+    // We're still loading because we're waiting for the server to stream more content.
+    expect(getVisibleChildren(container)).toEqual(<div>Loading...</div>);
+
+    const theError = new Error('Error Message');
+    await act(async () => {
+      rejectText('This Errors', theError);
+    });
+
+    expect(loggedErrors).toEqual([theError]);
+
+    // The server errored, but we still haven't hydrated. We don't know if the
+    // client will succeed yet, so we still show the loading state.
+    expect(getVisibleChildren(container)).toEqual(<div>Loading...</div>);
+    expect(ref.current).toBe(null);
+
+    // Flush the hydration.
+    Scheduler.unstable_flushAll();
+
+    // Hydrating should've generated an error and replaced the suspense boundary.
+    expect(getVisibleChildren(container)).toEqual(<b>Error Message</b>);
+
+    const b = container.getElementsByTagName('b')[0];
+    expect(ref.current).toBe(b);
+  });
+
+  // @gate experimental
+  it('shows inserted items before pending in a SuspenseList as fallbacks while hydrating', async () => {
+    const ref = React.createRef();
+
+    // These are hoisted to avoid them from rerendering.
+    const a = (
+      <Suspense fallback="Loading A">
+        <span ref={ref}>
+          <AsyncText text="A" />
+        </span>
+      </Suspense>
+    );
+    const b = (
+      <Suspense fallback="Loading B">
+        <span>
+          <Text text="B" />
+        </span>
+      </Suspense>
+    );
+
+    function App({showMore}) {
+      return (
+        <SuspenseList revealOrder="forwards">
+          {a}
+          {b}
+          {showMore ? (
+            <Suspense fallback="Loading C">
+              <span>C</span>
+            </Suspense>
+          ) : null}
+        </SuspenseList>
+      );
+    }
+
+    // We originally suspend the boundary and start streaming the loading state.
+    await act(async () => {
+      const {startWriting} = ReactDOMFizzServer.pipeToNodeWritable(
+        <App showMore={false} />,
+        writable,
+      );
+      startWriting();
+    });
+
+    const root = ReactDOM.createRoot(container, {hydrate: true});
+    root.render(<App showMore={false} />);
+    Scheduler.unstable_flushAll();
+
+    // We're not hydrated yet.
+    expect(ref.current).toBe(null);
+    expect(getVisibleChildren(container)).toEqual([
+      'Loading A',
+      // TODO: This is incorrect. It should be "Loading B" but Fizz SuspenseList
+      // isn't implemented fully yet.
+      <span>B</span>,
+    ]);
+
+    // Add more rows before we've hydrated the first two.
+    root.render(<App showMore={true} />);
+    Scheduler.unstable_flushAll();
+
+    // We're not hydrated yet.
+    expect(ref.current).toBe(null);
+
+    // We haven't resolved yet.
+    expect(getVisibleChildren(container)).toEqual([
+      'Loading A',
+      // TODO: This is incorrect. It should be "Loading B" but Fizz SuspenseList
+      // isn't implemented fully yet.
+      <span>B</span>,
+      'Loading C',
+    ]);
+
+    await act(async () => {
+      await resolveText('A');
+    });
+
+    Scheduler.unstable_flushAll();
+
+    expect(getVisibleChildren(container)).toEqual([
+      <span>A</span>,
+      <span>B</span>,
+      <span>C</span>,
+    ]);
+
+    const span = container.getElementsByTagName('span')[0];
+    expect(ref.current).toBe(span);
+  });
+
+  // @gate experimental
   it('client renders a boundary if it does not resolve before aborting', async () => {
     function App() {
       return (
@@ -310,7 +703,7 @@ describe('ReactDOMFizzServer', () => {
     // We're still showing a fallback.
 
     // Attempt to hydrate the content.
-    const root = ReactDOM.unstable_createRoot(container, {hydrate: true});
+    const root = ReactDOM.createRoot(container, {hydrate: true});
     root.render(<App />);
     Scheduler.unstable_flushAll();
 
@@ -801,6 +1194,73 @@ describe('ReactDOMFizzServer', () => {
   });
 
   // @gate experimental
+  it('should recover the outer context when an error happens inside a provider', async () => {
+    const ContextA = React.createContext('A0');
+    const ContextB = React.createContext('B0');
+
+    function PrintA() {
+      return (
+        <ContextA.Consumer>{value => <Text text={value} />}</ContextA.Consumer>
+      );
+    }
+
+    class PrintB extends React.Component {
+      static contextType = ContextB;
+      render() {
+        return <Text text={this.context} />;
+      }
+    }
+
+    function Throws() {
+      const value = React.useContext(ContextA);
+      throw new Error(value);
+    }
+
+    const loggedErrors = [];
+    await act(async () => {
+      const {startWriting} = ReactDOMFizzServer.pipeToNodeWritable(
+        <div>
+          <PrintA />
+          <div>
+            <ContextA.Provider value="A0.1">
+              <Suspense
+                fallback={
+                  <b>
+                    <Text text="Loading..." />
+                  </b>
+                }>
+                <ContextA.Provider value="A0.1.1">
+                  <Throws />
+                </ContextA.Provider>
+              </Suspense>
+              <PrintB />
+            </ContextA.Provider>
+          </div>
+          <PrintA />
+        </div>,
+        writable,
+        {
+          onError(x) {
+            loggedErrors.push(x);
+          },
+        },
+      );
+      startWriting();
+    });
+    expect(loggedErrors.length).toBe(1);
+    expect(loggedErrors[0].message).toEqual('A0.1.1');
+    expect(getVisibleChildren(container)).toEqual(
+      <div>
+        A0
+        <div>
+          <b>Loading...</b>B0
+        </div>
+        A0
+      </div>,
+    );
+  });
+
+  // @gate experimental
   it('client renders a boundary if it errors before finishing the fallback', async () => {
     function App({isClient}) {
       return (
@@ -834,7 +1294,7 @@ describe('ReactDOMFizzServer', () => {
     // We're still showing a fallback.
 
     // Attempt to hydrate the content.
-    const root = ReactDOM.unstable_createRoot(container, {hydrate: true});
+    const root = ReactDOM.createRoot(container, {hydrate: true});
     root.render(<App isClient={true} />);
     Scheduler.unstable_flushAll();
 

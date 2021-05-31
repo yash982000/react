@@ -153,7 +153,6 @@ describe('updaters', () => {
     expect(allSchedulerTypes).toEqual([[null], [SchedulingComponent]]);
   });
 
-  // @gate experimental
   it('should cover cascading updates', async () => {
     let triggerActiveCascade = null;
     let triggerPassiveCascade = null;
@@ -183,7 +182,7 @@ describe('updaters', () => {
       return count;
     };
 
-    const root = ReactDOM.unstable_createRoot(document.createElement('div'));
+    const root = ReactDOM.createRoot(document.createElement('div'));
     await ReactTestUtils.act(async () => {
       root.render(<Parent />);
       expect(Scheduler).toFlushAndYieldThrough([
@@ -292,92 +291,6 @@ describe('updaters', () => {
     done();
   });
 
-  // @gate experimental
-  it('traces interaction through hidden subtree', async () => {
-    const {
-      FunctionComponent,
-      HostRoot,
-    } = require('react-reconciler/src/ReactWorkTags');
-
-    // Note: This is based on a similar component we use in www. We can delete once
-    // the extra div wrapper is no longer necessary.
-    function LegacyHiddenDiv({children, mode}) {
-      return (
-        <div hidden={mode === 'hidden'}>
-          <React.unstable_LegacyHidden
-            mode={mode === 'hidden' ? 'unstable-defer-without-hiding' : mode}>
-            {children}
-          </React.unstable_LegacyHidden>
-        </div>
-      );
-    }
-
-    const Child = () => {
-      const [didMount, setDidMount] = React.useState(false);
-      Scheduler.unstable_yieldValue('Child');
-      React.useEffect(() => {
-        if (didMount) {
-          Scheduler.unstable_yieldValue('Child:update');
-        } else {
-          Scheduler.unstable_yieldValue('Child:mount');
-          setDidMount(true);
-        }
-      }, [didMount]);
-      return <div />;
-    };
-
-    const App = () => {
-      Scheduler.unstable_yieldValue('App');
-      React.useEffect(() => {
-        Scheduler.unstable_yieldValue('App:mount');
-      }, []);
-      return (
-        <LegacyHiddenDiv mode="hidden">
-          <Child />
-        </LegacyHiddenDiv>
-      );
-    };
-
-    const container = document.createElement('div');
-    const root = ReactDOM.createRoot(container);
-    await ReactTestUtils.act(async () => {
-      root.render(<App />);
-    });
-
-    // TODO: There are 4 commits here instead of 3
-    // because this update was scheduled at idle priority,
-    // and idle updates are slightly higher priority than offscreen work.
-    // So it takes two render passes to finish it.
-    // The onCommit hook is called even after the no-op bailout update.
-    expect(Scheduler).toHaveYielded([
-      'App',
-      'onCommitRoot',
-      'App:mount',
-
-      'Child',
-      'onCommitRoot',
-      'Child:mount',
-
-      'onCommitRoot',
-
-      'Child',
-      'onCommitRoot',
-      'Child:update',
-    ]);
-    expect(allSchedulerTypes).toEqual([
-      // Initial render
-      [null],
-      // Offscreen update
-      [],
-      // Child passive effect
-      [Child],
-      // Offscreen update
-      [],
-    ]);
-    expect(allSchedulerTags).toEqual([[HostRoot], [], [FunctionComponent], []]);
-  });
-
-  // @gate experimental
   it('should cover error handling', async () => {
     let triggerError = null;
 
@@ -414,7 +327,7 @@ describe('updaters', () => {
       throw new Error('Hello');
     };
 
-    const root = ReactDOM.unstable_createRoot(document.createElement('div'));
+    const root = ReactDOM.createRoot(document.createElement('div'));
     await ReactTestUtils.act(async () => {
       root.render(<Parent shouldError={false} />);
     });
@@ -434,7 +347,6 @@ describe('updaters', () => {
     Scheduler.unstable_flushAll();
   });
 
-  // @gate experimental
   it('should distinguish between updaters in the case of interleaved work', async () => {
     const {
       FunctionComponent,
@@ -453,7 +365,7 @@ describe('updaters', () => {
     const LowPriorityUpdater = () => {
       const [count, setCount] = React.useState(0);
       triggerLowPriorityUpdate = () => {
-        React.unstable_startTransition(() => {
+        React.startTransition(() => {
           setCount(prevCount => prevCount + 1);
         });
       };
@@ -465,7 +377,7 @@ describe('updaters', () => {
       return null;
     };
 
-    const root = ReactDOM.unstable_createRoot(document.createElement('div'));
+    const root = ReactDOM.createRoot(document.createElement('div'));
     root.render(
       <React.Fragment>
         <SyncPriorityUpdater />

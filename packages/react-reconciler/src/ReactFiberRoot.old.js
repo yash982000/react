@@ -20,14 +20,12 @@ import {
   createLaneMap,
 } from './ReactFiberLane.old';
 import {
-  enableSchedulerTracing,
   enableSuspenseCallback,
   enableCache,
   enableProfilerCommitHooks,
   enableProfilerTimer,
   enableUpdaterTracking,
 } from 'shared/ReactFeatureFlags';
-import {unstable_getThreadID} from 'scheduler/tracing';
 import {initializeUpdateQueue} from './ReactUpdateQueue.old';
 import {LegacyRoot, ConcurrentRoot} from './ReactRootTags';
 
@@ -50,6 +48,7 @@ function FiberRootNode(containerInfo, tag, hydrate) {
   this.pendingLanes = NoLanes;
   this.suspendedLanes = NoLanes;
   this.pingedLanes = NoLanes;
+  this.expiredLanes = NoLanes;
   this.mutableReadLanes = NoLanes;
   this.finishedLanes = NoLanes;
 
@@ -65,11 +64,6 @@ function FiberRootNode(containerInfo, tag, hydrate) {
     this.mutableSourceEagerHydrationData = null;
   }
 
-  if (enableSchedulerTracing) {
-    this.interactionThreadID = unstable_getThreadID();
-    this.memoizedInteractions = new Set();
-    this.pendingInteractionMap = new Map();
-  }
   if (enableSuspenseCallback) {
     this.hydrationCallbacks = null;
   }
@@ -104,7 +98,8 @@ export function createFiberRoot(
   tag: RootTag,
   hydrate: boolean,
   hydrationCallbacks: null | SuspenseHydrationCallbacks,
-  strictModeLevelOverride: null | number,
+  isStrictMode: boolean,
+  concurrentUpdatesByDefaultOverride: null | boolean,
 ): FiberRoot {
   const root: FiberRoot = (new FiberRootNode(containerInfo, tag, hydrate): any);
   if (enableSuspenseCallback) {
@@ -113,7 +108,11 @@ export function createFiberRoot(
 
   // Cyclic construction. This cheats the type system right now because
   // stateNode is any.
-  const uninitializedFiber = createHostRootFiber(tag, strictModeLevelOverride);
+  const uninitializedFiber = createHostRootFiber(
+    tag,
+    isStrictMode,
+    concurrentUpdatesByDefaultOverride,
+  );
   root.current = uninitializedFiber;
   uninitializedFiber.stateNode = root;
 

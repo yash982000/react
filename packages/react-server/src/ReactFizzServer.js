@@ -102,6 +102,7 @@ import {
   disableModulePatternComponents,
   warnAboutDefaultPropsOnFunctionComponents,
   enableScopeAPI,
+  enableLazyElements,
 } from 'shared/ReactFeatureFlags';
 
 import getComponentNameFromType from 'shared/getComponentNameFromType';
@@ -161,7 +162,7 @@ const BUFFERING = 0;
 const FLOWING = 1;
 const CLOSED = 2;
 
-type Request = {
+export opaque type Request = {
   +destination: Destination,
   +responseState: ResponseState,
   +progressiveChunkSize: number,
@@ -861,10 +862,15 @@ function renderContextProvider(
 function renderLazyComponent(
   request: Request,
   task: Task,
-  type: LazyComponentType<any, any>,
+  lazyComponent: LazyComponentType<any, any>,
   props: Object,
+  ref: any,
 ): void {
-  throw new Error('Not yet implemented element type.');
+  const payload = lazyComponent._payload;
+  const init = lazyComponent._init;
+  const Component = init(payload);
+  const resolvedProps = resolveDefaultProps(Component, props);
+  return renderElement(request, task, Component, resolvedProps, ref);
 }
 
 function renderElement(
@@ -1018,8 +1024,16 @@ function renderNodeDestructive(
             'Render them conditionally so that they only appear on the client render.',
         );
       // eslint-disable-next-line-no-fallthrough
-      case REACT_LAZY_TYPE:
-        throw new Error('Not yet implemented node type.');
+      case REACT_LAZY_TYPE: {
+        if (enableLazyElements) {
+          const lazyNode: LazyComponentType<any, any> = (node: any);
+          const payload = lazyNode._payload;
+          const init = lazyNode._init;
+          const resolvedNode = init(payload);
+          renderNodeDestructive(request, task, resolvedNode);
+          return;
+        }
+      }
     }
 
     if (isArray(node)) {
@@ -1174,6 +1188,13 @@ function renderNode(request: Request, task: Task, node: ReactNodeList): void {
       // Restore all active ReactContexts to what they were before.
       switchContext(previousContext);
     } else {
+      // Restore the context. We assume that this will be restored by the inner
+      // functions in case nothing throws so we don't use "finally" here.
+      task.blockedSegment.formatContext = previousFormatContext;
+      task.legacyContext = previousLegacyContext;
+      task.context = previousContext;
+      // Restore all active ReactContexts to what they were before.
+      switchContext(previousContext);
       // We assume that we don't need the correct context.
       // Let's terminate the rest of the tree and don't render any siblings.
       throw x;
@@ -1361,7 +1382,7 @@ function retryTask(request: Request, task: Task): void {
   }
 }
 
-function performWork(request: Request): void {
+export function performWork(request: Request): void {
   if (request.status === CLOSED) {
     return;
   }

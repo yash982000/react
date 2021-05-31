@@ -42,27 +42,24 @@ export const warnAboutDeprecatedLifecycles = true;
 export const enableProfilerTimer = __PROFILE__;
 
 // Record durations for commit and passive effects phases.
-export const enableProfilerCommitHooks = false;
+export const enableProfilerCommitHooks = __PROFILE__;
 
 // Phase param passed to onRender callback differentiates between an "update" and a "cascading-update".
-export const enableProfilerNestedUpdatePhase = false;
+export const enableProfilerNestedUpdatePhase = __PROFILE__;
 
 // Profiler API accepts a function to be called when a nested update is scheduled.
 // This callback accepts the component type (class instance or function) the update is scheduled for.
 export const enableProfilerNestedUpdateScheduledHook = false;
 
-// Trace which interactions trigger each commit.
-export const enableSchedulerTracing = __PROFILE__;
-
 // Track which Fiber(s) schedule render work.
 export const enableUpdaterTracking = __PROFILE__;
 
 // SSR experiments
-export const enableSuspenseServerRenderer = __EXPERIMENTAL__;
-export const enableSelectiveHydration = __EXPERIMENTAL__;
+export const enableSuspenseServerRenderer = true;
+export const enableSelectiveHydration = true;
 
 // Flight experiments
-export const enableLazyElements = __EXPERIMENTAL__;
+export const enableLazyElements = true;
 export const enableCache = __EXPERIMENTAL__;
 
 // Only used in www builds.
@@ -172,3 +169,5 @@ export const disableSchedulerTimeoutInWorkLoop = false;
 export const enableLazyContextPropagation = false;
 
 export const enableSyncDefaultUpdates = true;
+
+export const allowConcurrentByDefault = false;

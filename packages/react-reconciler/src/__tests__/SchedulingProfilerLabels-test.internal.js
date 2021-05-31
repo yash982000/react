@@ -100,7 +100,6 @@ describe('SchedulingProfiler labels', () => {
     );
   });
 
-  // @gate experimental
   // @gate enableSchedulingProfiler
   it('regression test DefaultLane', () => {
     const container = document.createElement('div');
@@ -114,7 +113,6 @@ describe('SchedulingProfiler labels', () => {
     });
   });
 
-  // @gate experimental
   // @gate enableSchedulingProfiler
   // @gate !enableLegacyFBSupport
   it('regression test InputDiscreteLane', () => {
@@ -144,7 +142,6 @@ describe('SchedulingProfiler labels', () => {
     );
   });
 
-  // @gate experimental
   // @gate enableSchedulingProfiler
   it('regression test InputContinuousLane', () => {
     const container = document.createElement('div');
@@ -168,18 +165,10 @@ describe('SchedulingProfiler labels', () => {
       event.initEvent('mouseover', true, true);
       dispatchAndSetCurrentEvent(targetRef.current, event);
     });
-    if (gate(flags => flags.enableSyncDefaultUpdates)) {
-      expect(clearedMarks).toContain(
-        `--schedule-state-update-${formatLanes(
-          ReactFiberLane.DefaultLane,
-        )}-App`,
-      );
-    } else {
-      expect(clearedMarks).toContain(
-        `--schedule-state-update-${formatLanes(
-          ReactFiberLane.InputContinuousLane,
-        )}-App`,
-      );
-    }
+    expect(clearedMarks).toContain(
+      `--schedule-state-update-${formatLanes(
+        ReactFiberLane.InputContinuousLane,
+      )}-App`,
+    );
   });
 });

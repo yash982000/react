@@ -9,9 +9,70 @@
   <!-- Upcoming changes go here -->
 </details>
 
+## 4.13.5 (May 25, 2021)
+#### Bugfix
+* Handle edge case where a component mounts before its "owner" (in DEV mode) that previously caused a validation error ([bvaughn](https://github.com/bvaughn) in [#21562](https://github.com/facebook/react/pull/21562))
+
+## 4.13.4 (May 20, 2021)
+#### Bugfix
+* Fix edge-case Fast Refresh bug that caused Fibers with warnings/errors to be untracked prematurely (which broke componentinspection in DevTools) ([bvaughn](https://github.com/bvaughn) in [#21536](https://github.com/facebook/react/pull/21536))
+* Revert force deep re-mount when Fast Refresh detected (was no longer necessary) ([bvaughn](https://github.com/bvaughn) in [#21539](https://github.com/facebook/react/pull/21539))
+
+## 4.13.3 (May 19, 2021)
+#### Misc
+* Updated `react` and `react-dom` API imports in preparation for upcoming stable release ([bvaughn](https://github.com/bvaughn) in [#21488](https://github.com/facebook/react/pull/21488))
+
+#### Bugfix
+* Reload all roots after Fast Refresh force-remount (to avoid corrupted Store state) ([bvaughn](https://github.com/bvaughn) in [#21516](https://github.com/facebook/react/pull/21516) and [#21523](https://github.com/facebook/react/pull/21523))
+* Errors thrown by Store can be dismissed so DevTools remain usable in many cases ([bvaughn](https://github.com/bvaughn) in [#21520](https://github.com/facebook/react/pull/21520))
+* Bugfix for `useState()` object with `hasOwnProperty` key ([bvaughn](https://github.com/bvaughn) in [#21524](https://github.com/facebook/react/pull/21524))
+* Fixed string concatenation problem when a `Symbol` was logged to `console.error` or `console.warn` ([bvaughn](https://github.com/bvaughn) in [#21521](https://github.com/facebook/react/pull/21521))
+* DevTools: Fixed version range NPM syntax
+ ([bvaughn](https://github.com/bvaughn) in [9cf1069](https://github.com/facebook/react/commit/9cf1069ffc5f3835506e314ef8c2e80bbfa8bdca#diff))
+* Tweaked DevTools error template title to match issue form template ([bvaughn](https://github.com/bvaughn) in [1a2d792](https://github.com/facebook/react/commit/1a2d7925035531e5767ff31ff8d0d581b5f94d49))
+
+## 4.13.2 (May 7, 2021)
+#### Misc
+* Improved bug report template to use new [GitHub issue forms](https://gh-community.github.io/issue-template-feedback/structured/) ([bvaughn](https://github.com/bvaughn) in [#21450](https://github.com/facebook/react/pull/21450))
+
+## 4.13.1 (April 28, 2021)
+#### Bugfix
+* Improve display name logic for `React.memo` components ([bvaughn](https://github.com/bvaughn) in [#21392](https://github.com/facebook/react/pull/21392))
+* Fixed potential runtime error with Suspense in versions <= 17 ([bvaughn](https://github.com/bvaughn) in [#21432](https://github.com/facebook/react/pull/21432))
+* Errors thrown in the Store are no longer silent ([bvaughn](https://github.com/bvaughn) in [#21426](https://github.com/facebook/react/pull/21426))
+
+#### Misc
+* Improved bug report template ([bvaughn](https://github.com/bvaughn) in [#21413](https://github.com/facebook/react/pull/21413)), [#21421](https://github.com/facebook/react/pull/21421))
+
+## 4.13.0 (April 28, 2021)
+#### Features
+* Add Bridge protocol version backend/frontend ([bvaughn](https://github.com/bvaughn) in [#21331](https://github.com/facebook/react/pull/21331))
+
+#### Bugfix
+* DevTools iterates over siblings during mount (rather than recursing) to avoid stack overflow errors ([bvaughn](https://github.com/bvaughn) in [#21377](https://github.com/facebook/react/pull/21377))
+* Multiple error dialogs can be visible at once ([bvaughn](https://github.com/bvaughn) in [#21370](https://github.com/facebook/react/pull/21370))
+* Console patching should handle Symbols without erroring ([bvaughn](https://github.com/bvaughn) in [#21368](https://github.com/facebook/react/pull/21368))
+
+###### Bridge protocol version backend/frontend
+During initialization, DevTools now checks to ensure it's compatible with the ["backend"](https://github.com/facebook/react/blob/master/packages/react-devtools/OVERVIEW.md#overview) that's embedded within a renderer like React Native. If the two aren't compatible, upgrade instructions will be shown:
+
+<img width="400" height="233" alt="Dialog displaying downgrade instructions for the React DevTools frontend to connect to an older backend version" src="https://user-images.githubusercontent.com/29597/115997927-f77f2a00-a5b2-11eb-9098-20042b664cea.png">
+    
+<img width="400" height="233" alt="Dialog displaying upgrade instructions for the React DevTools frontend to connect to a newer backend version" src="https://user-images.githubusercontent.com/29597/115997965-167dbc00-a5b3-11eb-9cbc-082c65077a6e.png">
+
+Learn more about this change at [fb.me/devtools-unsupported-bridge-protocol](https://fb.me/devtools-unsupported-bridge-protocol)
+
+## 4.12.4 (April 19, 2021)
+#### Bugfix
+* Remove `@octokit/rest` depedency because of a problem with transitive dependencies ([bvaughn](https://github.com/bvaughn) in [#21317](https://github.com/facebook/react/pull/21317))
+
+## 4.12.3 (April 19, 2021)
+#### Bugfix
+* Wrapped quotation marks around Fiber ids or indices for all DevTools errors to better support GitHub fuzzy error search ([bvaughn](https://github.com/bvaughn) in [#21314](https://github.com/facebook/react/pull/21314))
+
 ## 4.12.2 (April 16, 2021)
 #### Bugfix
-* DevTools reliably suppresses console logs when generating component stacks ([bvaughn](https://github.com/bvaughn) in [#21237](https://github.com/facebook/react/pull/21301))
+* DevTools reliably suppresses console logs when generating component stacks ([bvaughn](https://github.com/bvaughn) in [#21301](https://github.com/facebook/react/pull/21301))
 
 ## 4.12.1 (April 14, 2021)
 Although this release is being made for all NPM packages, only the `react-devtools-inline` package contains changes.
@@ -20,7 +81,7 @@ Although this release is being made for all NPM packages, only the `react-devtoo
 
 ## 4.12.0 (April 12, 2021)
 Although this release is being made for all NPM packages, only the `react-devtools-inline` package contains changes.
-#### Feature
+#### Features
 * Added `createBridge` and `createStore` exports to the `react-devtools-inline/frontend` entrypoint to support advanced use cases ([bvaughn](https://github.com/bvaughn) in [#21032](https://github.com/facebook/react/pull/21032))
 
 ## 4.11.1 (April 11, 2021)
@@ -72,6 +133,17 @@ The following features are only enabled when used with (experimental) builds of 
 ###### Show which hooks (indices) changed when profiling
 ![Show which hooks (indices) changed when profiling](https://user-images.githubusercontent.com/29597/114225838-d37be180-9940-11eb-93f8-93e0115421c8.png)
 
+## 4.10.4 (May 20, 2021)
+#### Bugfix
+* Ported passive effects sync flushing/bubbling bugfix ([bvaughn](https://github.com/bvaughn) in [#21540](https://github.com/facebook/react/pull/21540))
+
+## 4.10.3 (April 27, 2021)
+#### Bugfix
+* Replaced Facebook-internal fburl.com link with public fb.me link for Bridge protocol mismatch info page ([bvaughn](https://github.com/bvaughn) in [#21344](https://github.com/facebook/react/pull/21344))
+
+## 4.10.2 (April 27, 2021)
+#### Features
+* Added Bridge protocol check and warning dialog if embedded DevTools backend is incompatible with DevTools UI ([bvaughn](https://github.com/bvaughn) in [#21344](https://github.com/facebook/react/pull/21344))
 
 ## 4.10.1 (November 12, 2020)
 #### Bugfix

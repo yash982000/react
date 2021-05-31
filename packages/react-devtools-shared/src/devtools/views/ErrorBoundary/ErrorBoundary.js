@@ -9,16 +9,20 @@
 
 import * as React from 'react';
 import {Component, Suspense} from 'react';
+import Store from 'react-devtools-shared/src/devtools/store';
 import ErrorView from './ErrorView';
 import SearchingGitHubIssues from './SearchingGitHubIssues';
 import SuspendingErrorView from './SuspendingErrorView';
 
 type Props = {|
   children: React$Node,
+  canDismiss?: boolean,
+  store?: Store,
 |};
 
 type State = {|
   callStack: string | null,
+  canDismiss: boolean,
   componentStack: string | null,
   errorMessage: string | null,
   hasError: boolean,
@@ -26,6 +30,7 @@ type State = {|
 
 const InitialState: State = {
   callStack: null,
+  canDismiss: false,
   componentStack: null,
   errorMessage: null,
   hasError: false,
@@ -42,13 +47,6 @@ export default class ErrorBoundary extends Component<Props, State> {
         ? error.message
         : '' + error;
 
-    return {
-      errorMessage,
-      hasError: true,
-    };
-  }
-
-  componentDidCatch(error: any, {componentStack}: any) {
     const callStack =
       typeof error === 'object' &&
       error !== null &&
@@ -59,21 +57,51 @@ export default class ErrorBoundary extends Component<Props, State> {
             .join('\n')
         : null;
 
-    this.setState({
+    return {
       callStack,
+      errorMessage,
+      hasError: true,
+    };
+  }
+
+  componentDidCatch(error: any, {componentStack}: any) {
+    this.setState({
       componentStack,
     });
   }
 
+  componentDidMount() {
+    const {store} = this.props;
+    if (store != null) {
+      store.addListener('error', this._onStoreError);
+    }
+  }
+
+  componentWillUnmount() {
+    const {store} = this.props;
+    if (store != null) {
+      store.removeListener('error', this._onStoreError);
+    }
+  }
+
   render() {
-    const {children} = this.props;
-    const {callStack, componentStack, errorMessage, hasError} = this.state;
+    const {canDismiss: canDismissProp, children} = this.props;
+    const {
+      callStack,
+      canDismiss: canDismissState,
+      componentStack,
+      errorMessage,
+      hasError,
+    } = this.state;
 
     if (hasError) {
       return (
         <ErrorView
           callStack={callStack}
           componentStack={componentStack}
+          dismissError={
+            canDismissProp || canDismissState ? this._dismissError : null
+          }
           errorMessage={errorMessage}>
           <Suspense fallback={<SearchingGitHubIssues />}>
             <SuspendingErrorView
@@ -88,4 +116,17 @@ export default class ErrorBoundary extends Component<Props, State> {
 
     return children;
   }
+
+  _dismissError = () => {
+    this.setState(InitialState);
+  };
+
+  _onStoreError = (error: Error) => {
+    if (!this.state.hasError) {
+      this.setState({
+        ...ErrorBoundary.getDerivedStateFromError(error),
+        canDismiss: true,
+      });
+    }
+  };
 }

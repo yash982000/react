@@ -51,13 +51,15 @@ import enqueueTask from 'shared/enqueueTask';
 
 import {getPublicInstance} from './ReactTestHostConfig';
 import {ConcurrentRoot, LegacyRoot} from 'react-reconciler/src/ReactRootTags';
+import {allowConcurrentByDefault} from 'shared/ReactFeatureFlags';
 
 const {IsSomeRendererActing} = ReactSharedInternals;
 
 type TestRendererOptions = {
   createNodeMock: (element: React$Element<any>) => any,
   unstable_isConcurrent: boolean,
-  unstable_strictModeLevel: number,
+  unstable_strictMode: boolean,
+  unstable_concurrentUpdatesByDefault: boolean,
   ...
 };
 
@@ -435,7 +437,8 @@ function propsMatch(props: Object, filter: Object): boolean {
 function create(element: React$Element<any>, options: TestRendererOptions) {
   let createNodeMock = defaultTestOptions.createNodeMock;
   let isConcurrent = false;
-  let strictModeLevel = null;
+  let isStrictMode = false;
+  let concurrentUpdatesByDefault = null;
   if (typeof options === 'object' && options !== null) {
     if (typeof options.createNodeMock === 'function') {
       createNodeMock = options.createNodeMock;
@@ -443,8 +446,14 @@ function create(element: React$Element<any>, options: TestRendererOptions) {
     if (options.unstable_isConcurrent === true) {
       isConcurrent = true;
     }
-    if (options.unstable_strictModeLevel !== undefined) {
-      strictModeLevel = options.unstable_strictModeLevel;
+    if (options.unstable_strictMode === true) {
+      isStrictMode = true;
+    }
+    if (allowConcurrentByDefault) {
+      if (options.unstable_concurrentUpdatesByDefault !== undefined) {
+        concurrentUpdatesByDefault =
+          options.unstable_concurrentUpdatesByDefault;
+      }
     }
   }
   let container = {
@@ -457,7 +466,8 @@ function create(element: React$Element<any>, options: TestRendererOptions) {
     isConcurrent ? ConcurrentRoot : LegacyRoot,
     false,
     null,
-    strictModeLevel,
+    isStrictMode,
+    concurrentUpdatesByDefault,
   );
   invariant(root != null, 'something went wrong');
   updateContainer(element, root, null, null);
